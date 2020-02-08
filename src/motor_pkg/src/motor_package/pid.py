@@ -1,3 +1,6 @@
+# File adapted from m-lundberg,
+# https://github.com/m-lundberg/simple-pid
+
 import time
 import warnings
 
