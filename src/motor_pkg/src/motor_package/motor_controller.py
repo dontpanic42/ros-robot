@@ -27,21 +27,18 @@ class MotorController:
 		self.enable_left = False
 		self.enable_right = False
 
+		self.lw_tick_rate = 0.0
+		self.rw_tick_rate = 0.0
+
 		# Set initial speed
 		self.set_desired_speed(0, 0)
 
 		# Subscribe to the arduinos status updates
 		rospy.Subscriber(rospy.get_param("status_topic_name"), motorcontroller_status, self.status_update)
 
-	def set_desired_speed(self, lw=None, rw=None):
-		if lw is not None:
-			self.enable_left = (lw != 0)
-			self.lw_pid.setpoint = float(lw)
 
-		if rw is not None:
-			self.enable_right = (rw != 0)
-			self.rw_pid.setpoint = float(rw)
-
+	# Central callback for speed calculation. Gets called when the arduino updates its status.
+	# Triggers an output message for the arduino with the current values of the pid controller
 	def status_update(self, data):
 		if self.last_data is None:
 			self.last_data = data;
@@ -61,20 +58,41 @@ class MotorController:
 			# Calculate how many ticks occured between the last run an this run
 			tick_delta = data.lw_ticks - self.last_data.lw_ticks
 			# Convert the delta to ticks per ms
-			tick_rate = float(tick_delta) / time_delta
+			self.lw_tick_rate = float(tick_delta) / time_delta
 
 			# Start the pid controller with our values
-			output.lw_speed = self.lw_pid(tick_rate, dt=time_delta)
+			output.lw_speed = self.lw_pid(self.lw_tick_rate, dt=time_delta)
 
 		if self.last_data.rw_ticks <= data.rw_ticks:
 
 			# Calculate how many ticks occured between the last run an this run
 			tick_delta = data.rw_ticks - self.last_data.rw_ticks
 			# Convert the delta to ticks per ms
-			tick_rate = float(tick_delta) / time_delta
+			self.rw_tick_rate = float(tick_delta) / time_delta
 
 			# Start the pid controller with our values
-			output.rw_speed = self.rw_pid(tick_rate, dt=time_delta)
+			output.rw_speed = self.rw_pid(self.rw_tick_rate, dt=time_delta)
 
 		self.last_data = data;
 		self.output.publish(output)
+
+	# Setter for the desired speed the pid controller should aim to get to	
+	def set_desired_speed(self, lw=None, rw=None):
+		if lw is not None:
+			self.enable_left = (lw != 0)
+			self.lw_pid.setpoint = float(lw)
+
+		if rw is not None:
+			self.enable_right = (rw != 0)
+			self.rw_pid.setpoint = float(rw)
+
+	# Returns the latest tick rate in ticks per ms
+	def get_current_tickrate(self):
+		return self.lw_tick_rate, self.rw_tick_rate
+
+	# Returns the latest cumulative tick count 
+	def get_current_ticks(self):
+		if(self.last_data == None):
+			return 0, 0
+
+		return self.last_data.lw_ticks, self.last_data.rw_ticks
