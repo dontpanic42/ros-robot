@@ -1,0 +1,16 @@
+<launch>
+	<group ns="motor">
+		<param name="output_topic_name" value="/mco" />
+		<param name="status_topic_name" value="/mcs" />
+
+	    <group ns="gains">
+	      <param name="P" value="10.0" />
+	      <param name="I" value="1.0" />
+	      <param name="D" value="0.5" />      
+	    </group>
+
+		<node pkg="motor_pkg" name="motor_controller" type="motor.py" output="screen">
+
+		</node>
+	</group>
+</launch>

@@ -50,7 +50,8 @@ catkin_python_setup()
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
-  m_l_speed.msg
+  motorcontroller_status.msg
+  motorcontroller_output.msg
 )
 
 ## Generate services in the 'srv' folder

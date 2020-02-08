@@ -1,50 +1,85 @@
 import rospy
-from std_msgs.msg import Int32
-from std_msgs.msg import Int16
-import PID
-import constant
-
-
+from motor_pkg.msg import motorcontroller_status
+from motor_pkg.msg import motorcontroller_output 
+import pid
 
 def run():
-
-	lw_controller = MotorController(constant.LW_ENCODER_TICKS_TOPIC_NAME, constant.LW_SPEED_TOPIC_NAME)
-	# rw_controller = MotorController(constant.RW_ENCODER_TICKS_TOPIC_NAME, constant.RW_SPEED_TOPIC_NAME)
-
+	myMotorController = MotorController()
 	rospy.loginfo(rospy.get_name() + " Starting Motor Controller")
 	rospy.spin()
 
 class MotorController:
-	def __init__(self, ticksTopicName, speedTopicName):
-		self.ticks_last = 0
-		self.time_last = self.current_time()
+	def __init__(self):
+		self.last_data = None
 
-		self.speed_pub = rospy.Publisher(speedTopicName, Int16, queue_size=10)
+		# Setup publisher to communicate with arduino
+		self.output = rospy.Publisher(rospy.get_param("output_topic_name"), motorcontroller_output, queue_size=10)
 
-		self.pid = PID.PID(100, 200, 5, setpoint=2.0, sample_time=0.01)
-		self.pid.output_limits = (0, 255)
+		# Load gain parameters
+		gains = rospy.get_param('gains')
+		# Log gains
+		rospy.loginfo(rospy.get_name() + " Initializing with (p=%s,i=%s,d=%s)", gains['P'], gains['I'], gains['D'])
 
-		rospy.Subscriber(ticksTopicName, Int32, self.ticks_callback)
+		# Setup PID controller for left wheel
+		self.lw_pid = pid.PID(gains['P'], gains['I'], gains['D'], sample_time=0.01)
+		self.lw_pid.output_limits = (0, 255)
 
-	def current_time(self):
-		return rospy.get_rostime().to_nsec() / 1000 / 1000
+		# Setup PID controller for right wheel
+		self.rw_pid = pid.PID(gains['P'], gains['I'], gains['D'], sample_time=0.01)
+		self.rw_pid.output_limits = (0, 255)
 
-	def ticks_callback(self, data):
-		ticks_delta = data.data - self.ticks_last
-		self.ticks_last = data.data
+		# Initial setup of enable left/right
+		self.enable_left = False
+		self.enable_right = False
 
-		# The ticks delta should never be negative, if it is, we had an overflow
-		# and we need to skip this cycle
-		if(ticks_delta < 0):
+		# Set initial speed
+		self.set_desired_speed(0, 0)
+
+		# Subscribe to the arduinos status updates
+		rospy.Subscriber(rospy.get_param("status_topic_name"), motorcontroller_status, self.status_update)
+
+	def set_desired_speed(self, lw=None, rw=None):
+		if lw is not None:
+			self.enable_left = (lw != 0)
+			self.lw_pid.setpoint = float(lw)
+
+		if rw is not None:
+			self.enable_right = (rw != 0)
+			self.rw_pid.setpoint = float(rw)
+
+	def status_update(self, data):
+		if self.last_data is None:
+			self.last_data = data;
 			return
 
+		output = motorcontroller_output()
+		output.lw_speed = 0
+		output.rw_speed = 0
 
-		time_delta = self.current_time() - self.time_last
-		self.time_last = self.current_time()
-		ticks_rate = (float(ticks_delta) / float(time_delta)) if (ticks_delta != 0.0 and time_delta != 0) else 0.0 
+		# Get the milliseconds between the last message (as reported by the messages timestamp)
+		# and the current message
+		time_delta = float(data.stamp.to_nsec() - self.last_data.stamp.to_nsec()) / 1000.0 / 1000.0
 
+		# Only proceed for the left wheel update when there was no tick overflow...
+		if self.last_data.lw_ticks <= data.lw_ticks:
 
-		output = self.pid(ticks_rate)
-		rospy.loginfo(rospy.get_caller_id() + " rate %s, time delta %s, tick delta %s, out %s", ticks_rate, time_delta, ticks_delta, output)
+			# Calculate how many ticks occured between the last run an this run
+			tick_delta = data.lw_ticks - self.last_data.lw_ticks
+			# Convert the delta to ticks per ms
+			tick_rate = float(tick_delta) / time_delta
 
-		self.speed_pub.publish(output)
+			# Start the pid controller with our values
+			output.lw_speed = self.lw_pid(tick_rate, dt=time_delta)
+
+		if self.last_data.rw_ticks <= data.rw_ticks:
+
+			# Calculate how many ticks occured between the last run an this run
+			tick_delta = data.rw_ticks - self.last_data.rw_ticks
+			# Convert the delta to ticks per ms
+			tick_rate = float(tick_delta) / time_delta
+
+			# Start the pid controller with our values
+			output.rw_speed = self.rw_pid(tick_rate, dt=time_delta)
+
+		self.last_data = data;
+		self.output.publish(output)
