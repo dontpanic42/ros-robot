@@ -1,12 +1,7 @@
 import rospy
 from motor_pkg.msg import motorcontroller_status
-from motor_pkg.msg import motorcontroller_output 
+from motor_pkg.msg import motorcontroller_output
 import pid
-
-def run():
-	myMotorController = MotorController()
-	rospy.loginfo(rospy.get_name() + " Starting Motor Controller")
-	rospy.spin()
 
 class MotorController:
 	def __init__(self):

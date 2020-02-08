@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 
 import rospy
-import motor_package.motorcontroller
+from motor_package.motorcontroller import MotorController
 
 if __name__ == '__main__':
 	rospy.init_node('motor')
-	motor_package.motorcontroller.run()
+	rospy.loginfo(rospy.get_name() + " Starting Motor Controller")
+
+	myMotorController = MotorController()
+
+	rospy.spin()
