@@ -1,0 +1,7 @@
+<launch>
+
+	<group ns="rviz">
+		<node name="rviz" pkg="rviz" type="rviz" args="-d $(find robot_launch)/rviz/disp.rviz" />
+	</group>
+
+</launch>

@@ -1,0 +1,7 @@
+<launch>
+	<include file="$(find robot_launch)/launch/_motor_controller.launch" />
+
+	<include file="$(find robot_launch)/launch/_diff_drive.launch" />
+
+	<include file="$(find robot_launch)/launch/_rviz.launch" />
+</launch>
