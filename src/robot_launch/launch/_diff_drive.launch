@@ -38,13 +38,13 @@
     </rosparam>
   </node>
 
-  <node name="robot" pkg="diff_drive" type="diff_drive_mock_robot"
+<!--   <node name="robot" pkg="diff_drive" type="diff_drive_mock_robot"
         output="screen">
     <remap from="~lwheel_desired_rate" to="lwheel_desired_rate" />
     <remap from="~rwheel_desired_rate" to="rwheel_desired_rate" />
     <remap from="~lwheel_ticks" to="lwheel_ticks" />
     <remap from="~rwheel_ticks" to="rwheel_ticks" />
-  </node>
+  </node> -->
 
   <node name="diff_drive_go_to_goal" pkg="diff_drive"
         type="diff_drive_go_to_goal" output="screen">
